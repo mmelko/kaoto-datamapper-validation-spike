@@ -1,0 +1,19 @@
+- route:
+    id: test-classpath
+    from:
+      uri: timer:classpath
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Ping xmlns="http://example.com/ping">
+                <message>hello</message>
+              </Ping>
+        - log:
+            message: "Testing classpath resolution - validator should find simple.xsd"
+        - to:
+            uri: validator:simple.xsd
+        - log:
+            message: "PASSED classpath test - Camel JBang puts project files on classpath"

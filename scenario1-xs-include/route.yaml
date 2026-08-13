@@ -1,0 +1,52 @@
+- route:
+    id: test-xs-include-valid
+    from:
+      uri: timer:valid
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Order xmlns="http://example.com/order">
+                <id>ORD-001</id>
+                <shipTo>
+                  <street>123 Main St</street>
+                  <city>Springfield</city>
+                  <zip>62701</zip>
+                </shipTo>
+              </Order>
+        - to:
+            uri: validator:main.xsd
+        - log:
+            message: "PASSED xs:include validation with valid document"
+
+- route:
+    id: test-xs-include-invalid
+    from:
+      uri: timer:invalid
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Order xmlns="http://example.com/order">
+                <id>ORD-002</id>
+                <shipTo>
+                  <street>456 Oak Ave</street>
+                </shipTo>
+              </Order>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:main.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed for invalid document!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation correctly rejected invalid document"

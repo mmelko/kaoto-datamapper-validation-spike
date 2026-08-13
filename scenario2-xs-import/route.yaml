@@ -1,0 +1,22 @@
+- route:
+    id: test-xs-import-valid
+    from:
+      uri: timer:valid
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Invoice xmlns="http://example.com/invoice"
+                       xmlns:common="http://example.com/common">
+                <invoiceId>INV-001</invoiceId>
+                <total>
+                  <common:amount>99.99</common:amount>
+                  <common:currency>USD</common:currency>
+                </total>
+              </Invoice>
+        - to:
+            uri: validator:invoice.xsd
+        - log:
+            message: "PASSED xs:import validation - common-types.xsd resolved from classpath"

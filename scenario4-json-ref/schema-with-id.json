@@ -1,0 +1,9 @@
+{
+  "$id": "http://example.com/order-schema",
+  "type": "object",
+  "properties": {
+    "orderId": { "type": "string" },
+    "address": { "$ref": "definitions.json" }
+  },
+  "required": ["orderId", "address"]
+}

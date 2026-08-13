@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Order xmlns="http://example.com/order">
+  <id>ORD-001</id>
+  <shipTo>
+    <street>123 Main St</street>
+    <city>Springfield</city>
+    <zip>62701</zip>
+  </shipTo>
+</Order>

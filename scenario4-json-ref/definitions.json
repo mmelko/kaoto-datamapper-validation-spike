@@ -1,0 +1,9 @@
+{
+  "type": "object",
+  "properties": {
+    "street": { "type": "string" },
+    "city": { "type": "string" },
+    "zip": { "type": "string" }
+  },
+  "required": ["street", "city", "zip"]
+}

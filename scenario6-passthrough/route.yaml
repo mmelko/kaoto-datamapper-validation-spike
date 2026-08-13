@@ -1,0 +1,65 @@
+- route:
+    id: test-xml-passthrough
+    from:
+      uri: timer:xml-passthrough
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Item xmlns="http://example.com/item">
+                <name>Widget</name>
+                <price>19.99</price>
+              </Item>
+        - setHeader:
+            name: bodyBefore
+            simple: "${body}"
+        - to:
+            uri: validator:simple.xsd
+        - setHeader:
+            name: bodyAfter
+            simple: "${body}"
+        - choice:
+            when:
+              - simple: "${header.bodyBefore} == ${header.bodyAfter}"
+                steps:
+                  - log:
+                      message: "PASSED XML pass-through: body is UNCHANGED after validation"
+            otherwise:
+              steps:
+                - log:
+                    message: "FAILED XML pass-through: body was MODIFIED by validator!"
+                - log:
+                    message: "BEFORE length: ${header.bodyBefore.length}, AFTER length: ${header.bodyAfter.length}"
+
+- route:
+    id: test-json-passthrough
+    from:
+      uri: timer:json-passthrough
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: '{"name": "Widget", "price": 19.99}'
+        - setHeader:
+            name: bodyBefore
+            simple: "${body}"
+        - to:
+            uri: json-validator:simple-schema.json
+        - setHeader:
+            name: bodyAfter
+            simple: "${body}"
+        - choice:
+            when:
+              - simple: "${header.bodyBefore} == ${header.bodyAfter}"
+                steps:
+                  - log:
+                      message: "PASSED JSON pass-through: body is UNCHANGED after validation"
+            otherwise:
+              steps:
+                - log:
+                    message: "FAILED JSON pass-through: body was MODIFIED by json-validator!"
+                - log:
+                    message: "BEFORE length: ${header.bodyBefore.length}, AFTER length: ${header.bodyAfter.length}"

@@ -1,0 +1,65 @@
+- route:
+    id: test-json-ref-without-id-valid
+    from:
+      uri: timer:json-no-id-valid
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: '{"orderId": "ORD-001", "address": {"street": "123 Main St", "city": "Springfield", "zip": "62701"}}'
+        - log:
+            message: "Testing JSON $ref WITHOUT $id - valid doc"
+        - to:
+            uri: json-validator:schema-without-id.json
+        - log:
+            message: "PASSED json-validator WITHOUT $id - $ref resolved"
+
+- route:
+    id: test-json-ref-without-id-invalid
+    from:
+      uri: timer:json-no-id-invalid
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: '{"orderId": "ORD-002", "address": {"street": "456 Oak Ave"}}'
+        - log:
+            message: "Testing JSON $ref WITHOUT $id - invalid doc (expecting failure)"
+        - doTry:
+            steps:
+              - to:
+                  uri: json-validator:schema-without-id.json
+              - log:
+                  message: "UNEXPECTED: validation passed for invalid JSON!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation correctly rejected invalid JSON"
+
+- route:
+    id: test-json-ref-with-id
+    from:
+      uri: timer:json-with-id
+      parameters:
+        repeatCount: 1
+        delay: 6000
+      steps:
+        - setBody:
+            constant: '{"orderId": "ORD-001", "address": {"street": "123 Main St", "city": "Springfield", "zip": "62701"}}'
+        - log:
+            message: "Testing JSON $ref WITH $id"
+        - doTry:
+            steps:
+              - to:
+                  uri: json-validator:schema-with-id.json
+              - log:
+                  message: "PASSED json-validator WITH $id - $ref resolved (surprising per docs)"
+            doCatch:
+              - exception:
+                  - java.lang.Exception
+                steps:
+                  - log:
+                      message: "FAILED json-validator WITH $id: ${exception.message}"

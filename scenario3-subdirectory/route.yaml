@@ -1,0 +1,19 @@
+- route:
+    id: test-subdirectory
+    from:
+      uri: timer:subdir
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Person xmlns="http://example.com/person">
+                <firstName>John</firstName>
+                <lastName>Doe</lastName>
+                <email>john@example.com</email>
+              </Person>
+        - to:
+            uri: validator:main.xsd
+        - log:
+            message: "PASSED subdirectory validation - types/PersonType.xsd resolved via relative path"

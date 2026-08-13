@@ -1,0 +1,8 @@
+{
+  "orderId": "ORD-001",
+  "address": {
+    "street": "123 Main St",
+    "city": "Springfield",
+    "zip": "62701"
+  }
+}
