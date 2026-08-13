@@ -2,7 +2,7 @@
   "type": "object",
   "properties": {
     "orderId": { "type": "string" },
-    "address": { "$ref": "./definitions.json" }
+    "address": { "$ref": "definitions.json" }
   },
   "required": ["orderId", "address"]
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="http://example.com/invoice"
+         xmlns:common="http://example.com/common">
+  <invoiceId>INV-002</invoiceId>
+  <total>
+    <common:amount>not-a-number</common:amount>
+    <!-- missing currency -->
+  </total>
+</Invoice>

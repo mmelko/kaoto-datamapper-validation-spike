@@ -20,3 +20,34 @@
             uri: validator:invoice.xsd
         - log:
             message: "PASSED xs:import validation - common-types.xsd resolved from classpath"
+
+- route:
+    id: test-xs-import-invalid
+    from:
+      uri: timer:invalid
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Invoice xmlns="http://example.com/invoice"
+                       xmlns:common="http://example.com/common">
+                <invoiceId>INV-002</invoiceId>
+                <total>
+                  <common:amount>not-a-number</common:amount>
+                </total>
+              </Invoice>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:invoice.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed for invalid invoice!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation correctly rejected invalid invoice (imported type constraint violated)"

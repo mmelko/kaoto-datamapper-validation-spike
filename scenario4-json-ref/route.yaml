@@ -1,23 +1,25 @@
+## Test 4a: $ref with "./" prefix, no $id — valid document
 - route:
-    id: test-json-ref-without-id-valid
+    id: test-json-ref-dotslash-valid
     from:
-      uri: timer:json-no-id-valid
+      uri: timer:json-dotslash-valid
       parameters:
         repeatCount: 1
       steps:
         - setBody:
             constant: '{"orderId": "ORD-001", "address": {"street": "123 Main St", "city": "Springfield", "zip": "62701"}}'
         - log:
-            message: "Testing JSON $ref WITHOUT $id - valid doc"
+            message: "Testing JSON $ref './definitions.json' WITHOUT $id - valid doc"
         - to:
             uri: json-validator:schema-without-id.json
         - log:
-            message: "PASSED json-validator WITHOUT $id - $ref resolved"
+            message: "PASSED json-validator ./ref WITHOUT $id - $ref resolved"
 
+## Test 4b: $ref with "./" prefix, no $id — invalid document
 - route:
-    id: test-json-ref-without-id-invalid
+    id: test-json-ref-dotslash-invalid
     from:
-      uri: timer:json-no-id-invalid
+      uri: timer:json-dotslash-invalid
       parameters:
         repeatCount: 1
         delay: 3000
@@ -25,7 +27,7 @@
         - setBody:
             constant: '{"orderId": "ORD-002", "address": {"street": "456 Oak Ave"}}'
         - log:
-            message: "Testing JSON $ref WITHOUT $id - invalid doc (expecting failure)"
+            message: "Testing JSON $ref './definitions.json' WITHOUT $id - invalid doc (expecting failure)"
         - doTry:
             steps:
               - to:
@@ -39,10 +41,11 @@
                   - log:
                       message: "EXPECTED: validation correctly rejected invalid JSON"
 
+## Test 4c: $ref with bare filename (no "./" prefix), no $id
 - route:
-    id: test-json-ref-with-id
+    id: test-json-ref-bare-valid
     from:
-      uri: timer:json-with-id
+      uri: timer:json-bare-valid
       parameters:
         repeatCount: 1
         delay: 6000
@@ -50,16 +53,52 @@
         - setBody:
             constant: '{"orderId": "ORD-001", "address": {"street": "123 Main St", "city": "Springfield", "zip": "62701"}}'
         - log:
-            message: "Testing JSON $ref WITH $id"
+            message: "Testing JSON $ref 'definitions.json' (bare, no ./) WITHOUT $id"
         - doTry:
             steps:
               - to:
-                  uri: json-validator:schema-with-id.json
+                  uri: json-validator:schema-without-id-bare-ref.json
               - log:
-                  message: "PASSED json-validator WITH $id - $ref resolved (surprising per docs)"
+                  message: "PASSED json-validator bare ref WITHOUT $id - $ref resolved"
             doCatch:
               - exception:
                   - java.lang.Exception
                 steps:
                   - log:
-                      message: "FAILED json-validator WITH $id: ${exception.message}"
+                      message: "FAILED json-validator bare ref WITHOUT $id: ${exception.message}"
+
+## Test 4d: $ref with "./" prefix, WITH $id — tests whether $id breaks resolution
+- route:
+    id: test-json-ref-with-id
+    from:
+      uri: timer:json-with-id
+      parameters:
+        repeatCount: 1
+        delay: 9000
+      steps:
+        - setBody:
+            constant: '{"orderId": "ORD-001", "address": {"street": "123 Main St", "city": "Springfield", "zip": "62701"}}'
+        - log:
+            message: "Testing JSON $ref './definitions.json' WITH $id 'http://example.com/order-schema'"
+        - doTry:
+            steps:
+              - to:
+                  uri: json-validator:schema-with-id.json
+              - log:
+                  message: "PASSED json-validator WITH $id - $ref resolved despite $id (surprising per docs)"
+            doCatch:
+              - exception:
+                  - com.networknt.schema.SchemaException
+                steps:
+                  - log:
+                      message: "FAILED json-validator WITH $id - SchemaException (NetworkNT resolved $ref relative to $id URL): ${exception.message}"
+              - exception:
+                  - org.apache.camel.component.jsonvalidator.JsonValidationException
+                steps:
+                  - log:
+                      message: "FAILED json-validator WITH $id - JsonValidationException: ${exception.message}"
+              - exception:
+                  - java.lang.Exception
+                steps:
+                  - log:
+                      message: "FAILED json-validator WITH $id - unexpected exception type ${exception.class}: ${exception.message}"
