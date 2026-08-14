@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/zoo"
+           xmlns:tns="http://example.com/zoo"
+           xmlns:a="http://example.com/animals"
+           elementFormDefault="qualified">
+
+  <!-- Imports dog-type.xsd which xs:includes base-types.xsd,
+       so both AnimalType and DogType are available -->
+  <xs:import namespace="http://example.com/animals" schemaLocation="dog-type.xsd"/>
+
+  <xs:element name="Zoo">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="zooName" type="xs:string"/>
+        <xs:element name="animal" type="a:AnimalType" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

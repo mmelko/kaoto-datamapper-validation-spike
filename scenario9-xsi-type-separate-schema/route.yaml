@@ -1,0 +1,99 @@
+- route:
+    id: test-xsi-type-separate-with-import
+    from:
+      uri: timer:with-import
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Zoo xmlns="http://example.com/zoo"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:a="http://example.com/animals">
+                <zooName>City Zoo</zooName>
+                <animal xsi:type="a:DogType">
+                  <a:name>Rex</a:name>
+                  <a:weight>30.5</a:weight>
+                  <a:breed>German Shepherd</a:breed>
+                  <a:goodBoy>true</a:goodBoy>
+                </animal>
+              </Zoo>
+        - to:
+            uri: validator:zoo-with-import.xsd
+        - log:
+            message: "PASSED xsi:type separate schema WITH import - derived type from imported schema validated"
+
+- route:
+    id: test-xsi-type-separate-base-only
+    from:
+      uri: timer:base-only
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Zoo xmlns="http://example.com/zoo"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:a="http://example.com/animals">
+                <zooName>Small Zoo</zooName>
+                <animal xsi:type="a:DogType">
+                  <a:name>Buddy</a:name>
+                  <a:weight>25.0</a:weight>
+                  <a:breed>Labrador</a:breed>
+                  <a:goodBoy>true</a:goodBoy>
+                </animal>
+              </Zoo>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:zoo-base-only.xsd
+              - log:
+                  message: "PASSED xsi:type separate schema WITHOUT import - classpath presence suffices"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "FAILED xsi:type separate schema WITHOUT import - derived type NOT resolved from classpath alone"
+              - exception:
+                  - java.lang.Exception
+                steps:
+                  - log:
+                      message: "FAILED xsi:type separate schema WITHOUT import - exception: ${exception.message}"
+
+- route:
+    id: test-xsi-type-separate-invalid
+    from:
+      uri: timer:invalid
+      parameters:
+        repeatCount: 1
+        delay: 6000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Zoo xmlns="http://example.com/zoo"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xmlns:a="http://example.com/animals">
+                <zooName>Bad Zoo</zooName>
+                <animal xsi:type="a:DogType">
+                  <a:name>Rex</a:name>
+                  <a:weight>30.5</a:weight>
+                  <!-- missing required breed and goodBoy from DogType -->
+                </animal>
+              </Zoo>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:zoo-with-import.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed for incomplete DogType!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation rejected - DogType missing required extension elements"

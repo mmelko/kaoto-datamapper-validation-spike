@@ -1,0 +1,79 @@
+- route:
+    id: test-subst-group-valid
+    from:
+      uri: timer:valid
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Drawing xmlns="http://example.com/shapes">
+                <title>My Drawing</title>
+                <circle>
+                  <color>red</color>
+                  <radius>5.0</radius>
+                </circle>
+                <rectangle>
+                  <color>blue</color>
+                  <width>10.0</width>
+                  <height>20.0</height>
+                </rectangle>
+              </Drawing>
+        - to:
+            uri: validator:shapes.xsd
+        - log:
+            message: "PASSED substitution group - substitute elements accepted where head expected"
+
+- route:
+    id: test-subst-group-head-valid
+    from:
+      uri: timer:head
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Drawing xmlns="http://example.com/shapes">
+                <title>Simple Drawing</title>
+                <shape>
+                  <color>green</color>
+                </shape>
+              </Drawing>
+        - to:
+            uri: validator:shapes.xsd
+        - log:
+            message: "PASSED substitution group - head element also accepted"
+
+- route:
+    id: test-subst-group-invalid
+    from:
+      uri: timer:invalid
+      parameters:
+        repeatCount: 1
+        delay: 6000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Drawing xmlns="http://example.com/shapes">
+                <title>Bad Drawing</title>
+                <circle>
+                  <color>red</color>
+                  <!-- missing required radius -->
+                </circle>
+              </Drawing>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:shapes.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed for invalid substitute element!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation correctly rejected invalid substitute element (missing radius)"

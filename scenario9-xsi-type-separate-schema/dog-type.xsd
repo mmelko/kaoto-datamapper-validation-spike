@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/animals"
+           xmlns:tns="http://example.com/animals"
+           elementFormDefault="qualified">
+
+  <xs:include schemaLocation="base-types.xsd"/>
+
+  <!-- Derived type in separate file, same namespace -->
+  <xs:complexType name="DogType">
+    <xs:complexContent>
+      <xs:extension base="tns:AnimalType">
+        <xs:sequence>
+          <xs:element name="breed" type="xs:string"/>
+          <xs:element name="goodBoy" type="xs:boolean"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+</xs:schema>

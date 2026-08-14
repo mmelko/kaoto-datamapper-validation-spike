@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/shapes"
+           xmlns:tns="http://example.com/shapes"
+           elementFormDefault="qualified">
+
+  <!-- Base type for all shapes -->
+  <xs:complexType name="ShapeType">
+    <xs:sequence>
+      <xs:element name="color" type="xs:string"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Derived type: Circle extends Shape -->
+  <xs:complexType name="CircleType">
+    <xs:complexContent>
+      <xs:extension base="tns:ShapeType">
+        <xs:sequence>
+          <xs:element name="radius" type="xs:decimal"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Derived type: Rectangle extends Shape -->
+  <xs:complexType name="RectangleType">
+    <xs:complexContent>
+      <xs:extension base="tns:ShapeType">
+        <xs:sequence>
+          <xs:element name="width" type="xs:decimal"/>
+          <xs:element name="height" type="xs:decimal"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Head element of substitution group -->
+  <xs:element name="shape" type="tns:ShapeType"/>
+
+  <!-- Substitution group members -->
+  <xs:element name="circle" substitutionGroup="tns:shape" type="tns:CircleType"/>
+  <xs:element name="rectangle" substitutionGroup="tns:shape" type="tns:RectangleType"/>
+
+  <!-- Container that expects the head element -->
+  <xs:element name="Drawing">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="title" type="xs:string"/>
+        <xs:element ref="tns:shape" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

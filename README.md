@@ -3,9 +3,12 @@
 Investigation spike for [KaotoIO/kaoto#3603](https://github.com/KaotoIO/kaoto/issues/3603),
 part of [KaotoIO/kaoto#2433 — DataMapper: Support output validation](https://github.com/KaotoIO/kaoto/issues/2433).
 
-**Camel version:** 4.18.3 (Camel JBang)
+**Camel versions:** 4.18.2 LTS, 4.22.0 LTS (Camel JBang)
 **Java version:** OpenJDK 21.0.2
 **Platform:** macOS (aarch64)
+
+All XML-based scenarios (S1-S3, S5-S6) produce identical results on both LTS versions.
+JSON scenario S4 results differ in failure timing only — see [version matrix](#s1i-version-matrix) below.
 
 ---
 
@@ -342,3 +345,257 @@ Start with **Approach A (simple strip)** — it covers the common case where `$i
 metadata and `$ref` uses relative file paths. If edge cases emerge where `$id` is used as a
 reference target, Approach B can be built incrementally on top of the existing
 `JsonSchemaAnalysisService` infrastructure.
+
+---
+
+## S1i version matrix
+
+All scenarios tested on Camel **4.18.2 LTS** and **4.22.0 LTS**.
+
+| Scenario | 4.18.2 LTS | 4.22.0 LTS | Notes |
+|----------|------------|------------|-------|
+| S1 `xs:include` | **PASS** | **PASS** | Identical behavior |
+| S2 `xs:import` | **PASS** | **PASS** | Identical behavior |
+| S3 subdirectory | **PASS** | **PASS** | Identical behavior |
+| S4a-c JSON `$ref` without `$id` | **PASS** (\*) | **PASS** | (\*) 4.18.2: tests pass only if route 4d is removed — see S4d note |
+| S4d JSON `$ref` with `$id` | **FAIL** (route creation crash) | **FAIL** (runtime error) | Same root cause, different timing — see below |
+| S5 classpath | **PASS** | **PASS** | Identical behavior |
+| S6 body pass-through | **PASS** | **PASS** | Identical behavior |
+
+**S4d version difference:** In **4.18.2**, NetworkNT eagerly validates the schema at route creation time. The `SchemaException` from the `$id`-based `$ref` resolution kills the entire Camel context — all routes fail to start, including the unrelated S4a-c routes in the same file. In **4.22.0**, schema loading is lazier or better isolated — the error occurs at runtime only when the specific route processes a message, and other routes run normally.
+
+**Impact on S10:** If Kaoto supports Camel 4.18, a JSON schema with `$id` will crash the entire route context at startup, not just fail gracefully at validation time. This makes the `$id` workaround (strip or bundle) more important — leaving it to runtime error handling is not viable on 4.18.
+
+**All GO/NO-GO decisions are version-independent** — the underlying behavior (JAXP for XML, NetworkNT for JSON) is identical; only error handling differs.
+
+---
+---
+
+# S2i Spike: XML Schema `xsi:type` and substitution group validation
+
+Investigation spike for [KaotoIO/kaoto#3604](https://github.com/KaotoIO/kaoto/issues/3604),
+part of [KaotoIO/kaoto#2433 — DataMapper: Support output validation](https://github.com/KaotoIO/kaoto/issues/2433).
+
+**Camel versions:** 4.18.2 LTS, 4.22.0 LTS (Camel JBang)
+**Java version:** OpenJDK 21.0.2
+**Platform:** macOS (aarch64)
+
+All scenarios produce identical results on both LTS versions — validation is JAXP-based
+(part of the JDK, not Camel-specific).
+
+---
+
+## Purpose
+
+Determine whether the Camel XML Schema validator (JAXP) natively handles type overrides (via
+`xsi:type`) and substitution groups, so we know whether schema regeneration or `xsi:type`
+emission in the XSLT serializer is needed.
+
+## How to run
+
+```bash
+# Run individual scenario
+cd scenario7-substitution-group && camel run route.yaml
+cd scenario8-xsi-type && camel run route.yaml
+cd scenario9-xsi-type-separate-schema && camel run route.yaml
+
+# Run all (stops each after ~15s)
+./run-all.sh
+
+# Run single scenario by number
+./run-all.sh 7
+```
+
+Look for `PASSED`, `EXPECTED`, `UNEXPECTED`, or `FAILED` in the log output.
+
+---
+
+## Results summary
+
+| # | Scenario | Result | Decision |
+|---|----------|--------|----------|
+| S7a | Substitution group — substitute elements accepted | **PASS** | Substitution groups: **GO — NO-OP** |
+| S7b | Substitution group — head element also accepted | **PASS** | No schema regeneration needed |
+| S7c | Substitution group — invalid substitute rejected | **PASS** | Negative test confirms validation works |
+| S8a | `xsi:type` — derived type with extension children | **PASS** | `xsi:type`: **GO — S5 needed** |
+| S8b | `xsi:type` — base type without `xsi:type` | **PASS** | Base type still works standalone |
+| S8c | No `xsi:type` but extension children present | **PASS** (rejected) | Confirms `xsi:type` is required |
+| S8d | `xsi:type` — incomplete derived type rejected | **PASS** (rejected) | Negative test confirms validation works |
+| S9a | `xsi:type` — derived type in imported schema | **PASS** | Cross-file `xsi:type`: **conditional GO** |
+| S9b | `xsi:type` — derived type on classpath only (not imported) | **FAIL** | Import chain required |
+| S9c | `xsi:type` — invalid derived type in imported schema | **PASS** (rejected) | Negative test confirms validation works |
+
+---
+
+## Scenario details
+
+### Scenario 7: Substitution groups
+
+**Question:** Does the JAXP validator accept substitution group members where the head element
+is declared in the schema?
+
+**Setup:**
+- `shapes.xsd` — defines `ShapeType` (base), `CircleType` (extends with `radius`),
+  `RectangleType` (extends with `width`, `height`). Head element `shape` with substitution
+  group members `circle` and `rectangle`. Container element `Drawing` references `tns:shape`
+  with `maxOccurs="unbounded"`.
+
+**Route (`route.yaml`):**
+Three routes run sequentially (3s intervals):
+
+1. Route `test-subst-group-valid`: Sets body to a `<Drawing>` containing `<circle>` and
+   `<rectangle>` elements (substitutes for `<shape>`). Validates against `shapes.xsd`.
+2. Route `test-subst-group-head-valid`: Sets body to a `<Drawing>` containing `<shape>`
+   (the head element). Validates against `shapes.xsd`.
+3. Route `test-subst-group-invalid`: Sets body to a `<Drawing>` with a `<circle>` missing
+   the required `<radius>` element. Uses `doTry/doCatch` expecting `ValidationException`.
+
+**Result: PASS**
+```
+PASSED substitution group - substitute elements accepted where head expected
+PASSED substitution group - head element also accepted
+EXPECTED: validation correctly rejected invalid substitute element (missing radius)
+```
+
+JAXP validates substitution group members natively. The DataMapper's existing
+`applySubstitutionToField()` changes `field.name` to the substitute element name, and the
+XSLT serializer outputs that name — the validator accepts it without any schema modification.
+
+---
+
+### Scenario 8: `xsi:type` — derived type validation (single schema)
+
+**Question:** Does `xsi:type` make the JAXP validator use the derived type for content
+validation? What happens without `xsi:type` when extension children are present?
+
+**Setup:**
+- `vehicles.xsd` — defines `VehicleType` (base: `make`, `year`), `CarType` (extends with
+  `doors`, `trunkSize`), `TruckType` (extends with `payload`, `axles`). Container element
+  `Fleet` with `vehicle` elements typed as `VehicleType`.
+
+**Route (`route.yaml`):**
+Four routes run sequentially (3s intervals):
+
+1. Route `test-xsi-type-valid`: Sets body to a `<Fleet>` with two vehicles: a `<vehicle
+   xsi:type="v:CarType">` with all Car fields and a `<vehicle xsi:type="v:TruckType">` with
+   all Truck fields. Validates against `vehicles.xsd`.
+2. Route `test-xsi-type-base-only`: Sets body to a `<Fleet>` with a plain `<vehicle>` (no
+   `xsi:type`, only base type fields). Validates against `vehicles.xsd`.
+3. Route `test-xsi-type-no-attr-with-extension-children`: Sets body to a `<Fleet>` with a
+   `<vehicle>` containing CarType extension children (`doors`, `trunkSize`) but **without**
+   `xsi:type`. Uses `doTry/doCatch` expecting `ValidationException`.
+4. Route `test-xsi-type-invalid-extension`: Sets body with `xsi:type="v:CarType"` but missing
+   required extension elements (`doors`, `trunkSize`). Uses `doTry/doCatch` expecting
+   `ValidationException`.
+
+**Result: PASS**
+```
+PASSED xsi:type - derived types validated correctly with extension elements
+PASSED xsi:type - base type still works without xsi:type
+EXPECTED: validation rejected - extension children present without xsi:type
+EXPECTED: validation rejected - CarType missing required extension elements
+```
+
+`xsi:type` correctly switches the validator to the derived type. Without `xsi:type`, the
+validator uses the base type and rejects extension children as unexpected. This confirms that
+the XSLT serializer **must** emit `xsi:type` when a type override is active.
+
+**Current gap:** `applyTypeOverrideToField()` rebuilds the field's children from the extension
+type, but `FieldItemHandler.serialize()` in `xslt-item-handlers.ts` does NOT emit `xsi:type`
+on the output element. S5 must add this.
+
+---
+
+### Scenario 9: `xsi:type` — derived type in a separate schema file
+
+**Question:** When the derived type is defined in a separate `.xsd` file, does `xsi:type`
+resolution require the type's schema to be imported by the root schema? Or does classpath
+presence suffice?
+
+**Setup:**
+- `base-types.xsd` — namespace `http://example.com/animals`, defines `AnimalType` (base:
+  `name`, `weight`)
+- `dog-type.xsd` — same namespace, `xs:include`s `base-types.xsd`, defines `DogType` (extends
+  with `breed`, `goodBoy`)
+- `zoo-with-import.xsd` — namespace `http://example.com/zoo`, imports `dog-type.xsd` (which
+  transitively includes `base-types.xsd`). Element `Zoo` with `animal` elements typed as
+  `AnimalType`.
+- `zoo-base-only.xsd` — same as above but imports **only** `base-types.xsd` (derived
+  `DogType` is NOT in the import chain, only on classpath).
+
+**Route (`route.yaml`):**
+Three routes run sequentially (3s intervals):
+
+1. Route `test-xsi-type-separate-with-import`: Validates a `<Zoo>` with
+   `<animal xsi:type="a:DogType">` against `zoo-with-import.xsd`.
+2. Route `test-xsi-type-separate-base-only`: Validates the same document against
+   `zoo-base-only.xsd`. Uses `doTry/doCatch` to detect whether classpath presence suffices.
+3. Route `test-xsi-type-separate-invalid`: Validates a `<Zoo>` with `xsi:type="a:DogType"`
+   but missing required extension elements, against `zoo-with-import.xsd`.
+
+**Result: PARTIAL PASS**
+```
+PASSED xsi:type separate schema WITH import - derived type from imported schema validated
+FAILED xsi:type separate schema WITHOUT import - derived type NOT resolved from classpath alone
+EXPECTED: validation rejected - DogType missing required extension elements
+```
+
+| Sub-test | Schema imports | Result |
+|----------|----------------|--------|
+| 9a | `dog-type.xsd` (contains DogType + includes base) | **PASS** |
+| 9b | `base-types.xsd` only (DogType on classpath but not imported) | **FAIL** |
+| 9c | `dog-type.xsd` + invalid doc | **PASS** (correctly rejected) |
+
+**Root cause of 9b failure:** JAXP's `SchemaFactory` builds the schema object from the
+`xs:import`/`xs:include` graph rooted at the validation schema. Types not reachable through
+that graph are unknown to the validator, regardless of classpath presence. When `xsi:type`
+references an unknown type, the validator throws a `ValidationException`.
+
+---
+
+## Decisions for downstream issues
+
+### S5 (`xsi:type` generation in XSLT serializer) — **Required**
+
+Without `xsi:type`, the JAXP validator rejects extension children. The XSLT serializer must
+emit `xsi:type="ns:DerivedType"` on elements where `applyTypeOverrideToField()` was applied.
+Currently, `FieldItemHandler.serialize()` creates the output element with the field's `name`
+and `namespaceURI` but does not add `xsi:type`. The `NS_XML_SCHEMA_INSTANCE` constant already
+exists in `standard-namespaces.ts`.
+
+### Schema regeneration — **Not needed**
+
+Neither substitution groups nor `xsi:type` require modifying the original schemas. The
+schemas are valid as-is — the only requirement is that the runtime document includes the
+correct `xsi:type` attributes.
+
+### S3/S9 (schema accessibility) — **Must ensure import chain**
+
+When a derived type is defined in a separate schema file, the root validation schema must
+import (directly or transitively) the file containing the derived type definition. Classpath
+presence alone is insufficient. The existing `XmlSchemaAnalysisService` already tracks
+`xs:import`/`xs:include` edges and resolves schema locations — it can be used to verify that
+all type-overridden types are reachable from the root schema. If they are not, either:
+- A warning should be surfaced to the user, or
+- The generated validation schema should include additional `xs:import` directives for schemas
+  containing used derived types
+
+---
+
+## S2i version matrix
+
+All scenarios tested on Camel **4.18.2 LTS** and **4.22.0 LTS**. Results are identical —
+validation is JAXP-based (part of the JDK), so behavior does not depend on the Camel version.
+
+| Scenario | 4.18.2 LTS | 4.22.0 LTS |
+|----------|------------|------------|
+| S7a substitution group — substitutes accepted | **PASS** | **PASS** |
+| S7b substitution group — head accepted | **PASS** | **PASS** |
+| S7c substitution group — invalid rejected | **PASS** | **PASS** |
+| S8a `xsi:type` — derived type valid | **PASS** | **PASS** |
+| S8b `xsi:type` — base type valid | **PASS** | **PASS** |
+| S8c no `xsi:type` + extension children | **PASS** (rejected) | **PASS** (rejected) |
+| S8d `xsi:type` — incomplete derived type | **PASS** (rejected) | **PASS** (rejected) |
+| S9a `xsi:type` — imported schema | **PASS** | **PASS** |
+| S9b `xsi:type` — classpath only (not imported) | **FAIL** | **FAIL** |
+| S9c `xsi:type` — invalid + imported schema | **PASS** (rejected) | **PASS** (rejected) |

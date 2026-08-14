@@ -1,0 +1,121 @@
+- route:
+    id: test-xsi-type-valid
+    from:
+      uri: timer:valid
+      parameters:
+        repeatCount: 1
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Fleet xmlns="http://example.com/vehicles"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xmlns:v="http://example.com/vehicles">
+                <name>Acme Fleet</name>
+                <vehicle xsi:type="v:CarType">
+                  <make>Toyota</make>
+                  <year>2024</year>
+                  <doors>4</doors>
+                  <trunkSize>15.5</trunkSize>
+                </vehicle>
+                <vehicle xsi:type="v:TruckType">
+                  <make>Ford</make>
+                  <year>2023</year>
+                  <payload>5000.0</payload>
+                  <axles>2</axles>
+                </vehicle>
+              </Fleet>
+        - to:
+            uri: validator:vehicles.xsd
+        - log:
+            message: "PASSED xsi:type - derived types validated correctly with extension elements"
+
+- route:
+    id: test-xsi-type-base-only
+    from:
+      uri: timer:base
+      parameters:
+        repeatCount: 1
+        delay: 3000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Fleet xmlns="http://example.com/vehicles">
+                <name>Simple Fleet</name>
+                <vehicle>
+                  <make>Honda</make>
+                  <year>2022</year>
+                </vehicle>
+              </Fleet>
+        - to:
+            uri: validator:vehicles.xsd
+        - log:
+            message: "PASSED xsi:type - base type still works without xsi:type"
+
+- route:
+    id: test-xsi-type-no-attr-with-extension-children
+    from:
+      uri: timer:no-xsi
+      parameters:
+        repeatCount: 1
+        delay: 6000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Fleet xmlns="http://example.com/vehicles">
+                <name>Missing xsi:type Fleet</name>
+                <vehicle>
+                  <make>Toyota</make>
+                  <year>2024</year>
+                  <doors>4</doors>
+                  <trunkSize>15.5</trunkSize>
+                </vehicle>
+              </Fleet>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:vehicles.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed WITHOUT xsi:type but with extension children"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation rejected - extension children present without xsi:type"
+
+- route:
+    id: test-xsi-type-invalid-extension
+    from:
+      uri: timer:invalid
+      parameters:
+        repeatCount: 1
+        delay: 9000
+      steps:
+        - setBody:
+            constant: |
+              <?xml version="1.0" encoding="UTF-8"?>
+              <Fleet xmlns="http://example.com/vehicles"
+                     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                     xmlns:v="http://example.com/vehicles">
+                <name>Invalid Fleet</name>
+                <vehicle xsi:type="v:CarType">
+                  <make>Toyota</make>
+                  <year>2024</year>
+                  <!-- missing required doors and trunkSize from CarType extension -->
+                </vehicle>
+              </Fleet>
+        - doTry:
+            steps:
+              - to:
+                  uri: validator:vehicles.xsd
+              - log:
+                  message: "UNEXPECTED: validation passed for incomplete derived type!"
+            doCatch:
+              - exception:
+                  - org.apache.camel.ValidationException
+                steps:
+                  - log:
+                      message: "EXPECTED: validation rejected - CarType missing required extension elements"

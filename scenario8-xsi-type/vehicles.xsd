@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="http://example.com/vehicles"
+           xmlns:tns="http://example.com/vehicles"
+           elementFormDefault="qualified">
+
+  <!-- Base type -->
+  <xs:complexType name="VehicleType">
+    <xs:sequence>
+      <xs:element name="make" type="xs:string"/>
+      <xs:element name="year" type="xs:integer"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Derived type: Car extends Vehicle -->
+  <xs:complexType name="CarType">
+    <xs:complexContent>
+      <xs:extension base="tns:VehicleType">
+        <xs:sequence>
+          <xs:element name="doors" type="xs:integer"/>
+          <xs:element name="trunkSize" type="xs:decimal"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Derived type: Truck extends Vehicle -->
+  <xs:complexType name="TruckType">
+    <xs:complexContent>
+      <xs:extension base="tns:VehicleType">
+        <xs:sequence>
+          <xs:element name="payload" type="xs:decimal"/>
+          <xs:element name="axles" type="xs:integer"/>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <!-- Element declared with base type -->
+  <xs:element name="Fleet">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="vehicle" type="tns:VehicleType" maxOccurs="unbounded"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
